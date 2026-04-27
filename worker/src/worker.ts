@@ -8,7 +8,8 @@ async function supabaseRequest<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<{ data: T | null; error: string | null; status: number }> {
-  const url = `${env.SUPABASE_URL}/rest/v1${path}`;
+  const baseUrl = env.SUPABASE_URL.replace(/\/$/, '');
+  const url = `${baseUrl}/rest/v1${path}`;
   const headers: HeadersInit = {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
     Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
@@ -39,31 +40,37 @@ async function handlePostVote(request: Request, env: Env): Promise<Response> {
 
   const vectorString = `[${face_embedding.join(',')}]`;
 
-  const { data: matched } = await supabaseRequest<any[]>(env, `/rpc/match_visitor`, {
+  // 1. Visitor Check/Create
+  const { data: matched, error: matchError } = await supabaseRequest<any[]>(env, `/rpc/match_visitor`, {
     method: 'POST',
     body: JSON.stringify({ p_embedding: vectorString, p_threshold: 0.5 }),
   });
+
+  if (matchError) return new Response(JSON.stringify({ error: `Match Error: ${matchError}` }), { status: 500, headers: corsHeaders });
 
   let visitor_id: string;
   if (matched && matched.length > 0) {
     visitor_id = matched[0].id;
   } else {
-    const { data: inserted } = await supabaseRequest<any[]>(env, `/visitors`, {
+    const { data: inserted, error: insertError } = await supabaseRequest<any[]>(env, `/visitors`, {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
       body: JSON.stringify({ face_embedding: vectorString, face_hash: 'v3' }),
     });
-    if (!inserted) return new Response(JSON.stringify({ error: 'DB Error' }), { status: 500, headers: corsHeaders });
+    if (insertError || !inserted) return new Response(JSON.stringify({ error: `Visitor Creation Error: ${insertError}` }), { status: 500, headers: corsHeaders });
     visitor_id = inserted[0].id;
   }
 
+  // 2. Vote Attempt
   const { error: voteError, status: vStatus } = await supabaseRequest<any[]>(env, `/votes`, {
     method: 'POST',
     body: JSON.stringify({ visitor_id, club_id }),
   });
 
   if (vStatus === 409) return new Response(JSON.stringify({ error: 'Already voted' }), { status: 400, headers: corsHeaders });
+  if (voteError) return new Response(JSON.stringify({ error: `Vote Error: ${voteError}` }), { status: 500, headers: corsHeaders });
 
+  // 3. Increment Club Count
   await supabaseRequest(env, `/rpc/increment_club_votes`, { method: 'POST', body: JSON.stringify({ p_club_id: club_id }) });
 
   return new Response(JSON.stringify({ visitor_id }), { status: 200, headers: corsHeaders });
@@ -75,19 +82,23 @@ async function handleGetMyPage(request: Request, env: Env): Promise<Response> {
   if (!id) return new Response('Missing ID', { status: 400, headers: corsHeaders });
 
   // Get Vote and Club
-  const { data: votes } = await supabaseRequest<any[]>(
+  const { data: votes, error: fetchError } = await supabaseRequest<any[]>(
     env,
     `/votes?visitor_id=eq.${id}&select=id,created_at,club_id,club:clubs(id,name)&limit=1`
   );
 
+  if (fetchError) {
+    return new Response(JSON.stringify({ voted: false, debug_error: fetchError }), { status: 200, headers: corsHeaders });
+  }
+
   if (!votes || votes.length === 0) {
-    return new Response(JSON.stringify({ voted: false }), { status: 200, headers: corsHeaders });
+    return new Response(JSON.stringify({ voted: false, debug_info: 'No vote record found for this ID' }), { status: 200, headers: corsHeaders });
   }
 
   const vote = votes[0];
 
-  // Calculate Rank via RPC (Calling the SQL function we created)
-  const { data: rank } = await supabaseRequest<number>(
+  // Rank Calculation
+  const { data: rank, error: rankError } = await supabaseRequest<number>(
     env,
     `/rpc/get_vote_rank`,
     {
@@ -101,6 +112,7 @@ async function handleGetMyPage(request: Request, env: Env): Promise<Response> {
     visitor_id: id, 
     club: vote.club,
     rank: rank || 0,
+    rank_error: rankError,
     vote_timestamp: vote.created_at
   }), { status: 200, headers: corsHeaders });
 }
