@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CameraCapture } from '@/components/CameraCapture';
-import { LayoutGrid, Fingerprint, Send, AlertCircle, Info } from 'lucide-react';
+import { LayoutGrid, Fingerprint, Send, AlertCircle, Info, RefreshCw } from 'lucide-react';
 
 type Club = {
   id: number;
