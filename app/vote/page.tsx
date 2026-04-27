@@ -22,7 +22,7 @@ export default function VotePage() {
   useEffect(() => {
     const fetchClubs = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+        const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || '').replace(/\/$/, '');
         const res = await fetch(`${baseUrl}/api/results`);
         if (!res.ok) throw new Error('Failed to fetch clubs');
         const json = await res.json();
@@ -50,7 +50,7 @@ export default function VotePage() {
 
     setLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || '').replace(/\/$/, '');
       const res = await fetch(`${baseUrl}/api/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

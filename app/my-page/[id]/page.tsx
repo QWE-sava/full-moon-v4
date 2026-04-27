@@ -25,7 +25,7 @@ export default async function MyPage({ params }: Props) {
   let error: string | null = null;
 
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
     const res = await fetch(`${baseUrl}/api/my-page?id=${id}`, { cache: 'no-store' });
     if (!res.ok) throw new Error('Failed to fetch my page');
     data = await res.json();

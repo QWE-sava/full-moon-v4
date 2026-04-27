@@ -14,7 +14,7 @@ type ResultsResponse = {
 };
 
 async function fetchResults(): Promise<ResultsResponse> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
   const res = await fetch(`${baseUrl}/api/results`, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch results');
   return res.json();
