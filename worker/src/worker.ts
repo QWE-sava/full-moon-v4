@@ -17,6 +17,7 @@ async function supabaseRequest<T>(
     ...(init.headers || {}),
   };
 
+  console.log(`[Supabase] Request: ${path}`);
   const res = await fetch(url, { ...init, headers });
   const status = res.status;
   if (status === 204) return { data: null, error: null, status };
@@ -24,6 +25,7 @@ async function supabaseRequest<T>(
   try { json = await res.json(); } catch { }
   if (!res.ok) {
     const message = (json && (json.message || json.error || JSON.stringify(json))) || `Supabase error (status ${status})`;
+    console.error(`[Supabase] Error: ${message}`);
     return { data: null, error: message, status };
   }
   return { data: json as T, error: null, status };
@@ -38,9 +40,9 @@ async function handlePostVote(request: Request, env: Env): Promise<Response> {
   const club_id = body?.club_id;
   if (!face_embedding || !club_id) return new Response(JSON.stringify({ error: 'Missing data' }), { status: 400, headers: corsHeaders });
 
+  console.log(`[Vote] Processing vote for club ${club_id}`);
   const vectorString = `[${face_embedding.join(',')}]`;
 
-  // 1. Visitor Check/Create
   const { data: matched, error: matchError } = await supabaseRequest<any[]>(env, `/rpc/match_visitor`, {
     method: 'POST',
     body: JSON.stringify({ p_embedding: vectorString, p_threshold: 0.5 }),
@@ -51,6 +53,7 @@ async function handlePostVote(request: Request, env: Env): Promise<Response> {
   let visitor_id: string;
   if (matched && matched.length > 0) {
     visitor_id = matched[0].id;
+    console.log(`[Vote] Found existing visitor: ${visitor_id}`);
   } else {
     const { data: inserted, error: insertError } = await supabaseRequest<any[]>(env, `/visitors`, {
       method: 'POST',
@@ -59,9 +62,9 @@ async function handlePostVote(request: Request, env: Env): Promise<Response> {
     });
     if (insertError || !inserted) return new Response(JSON.stringify({ error: `Visitor Creation Error: ${insertError}` }), { status: 500, headers: corsHeaders });
     visitor_id = inserted[0].id;
+    console.log(`[Vote] Created new visitor: ${visitor_id}`);
   }
 
-  // 2. Vote Attempt
   const { error: voteError, status: vStatus } = await supabaseRequest<any[]>(env, `/votes`, {
     method: 'POST',
     body: JSON.stringify({ visitor_id, club_id }),
@@ -70,7 +73,7 @@ async function handlePostVote(request: Request, env: Env): Promise<Response> {
   if (vStatus === 409) return new Response(JSON.stringify({ error: 'Already voted' }), { status: 400, headers: corsHeaders });
   if (voteError) return new Response(JSON.stringify({ error: `Vote Error: ${voteError}` }), { status: 500, headers: corsHeaders });
 
-  // 3. Increment Club Count
+  console.log(`[Vote] Vote recorded successfully for ${visitor_id}`);
   await supabaseRequest(env, `/rpc/increment_club_votes`, { method: 'POST', body: JSON.stringify({ p_club_id: club_id }) });
 
   return new Response(JSON.stringify({ visitor_id }), { status: 200, headers: corsHeaders });
@@ -81,23 +84,25 @@ async function handleGetMyPage(request: Request, env: Env): Promise<Response> {
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return new Response('Missing ID', { status: 400, headers: corsHeaders });
 
-  // Get Vote and Club
+  console.log(`[MyPage] Fetching data for visitor ${id}`);
   const { data: votes, error: fetchError } = await supabaseRequest<any[]>(
     env,
     `/votes?visitor_id=eq.${id}&select=id,created_at,club_id,club:clubs(id,name)&limit=1`
   );
 
   if (fetchError) {
+    console.error(`[MyPage] Fetch Error: ${fetchError}`);
     return new Response(JSON.stringify({ voted: false, debug_error: fetchError }), { status: 200, headers: corsHeaders });
   }
 
   if (!votes || votes.length === 0) {
+    console.warn(`[MyPage] No vote record found for ${id}`);
     return new Response(JSON.stringify({ voted: false, debug_info: 'No vote record found for this ID' }), { status: 200, headers: corsHeaders });
   }
 
   const vote = votes[0];
+  console.log(`[MyPage] Found vote for ${vote.club.name}`);
 
-  // Rank Calculation
   const { data: rank, error: rankError } = await supabaseRequest<number>(
     env,
     `/rpc/get_vote_rank`,
@@ -107,6 +112,8 @@ async function handleGetMyPage(request: Request, env: Env): Promise<Response> {
     }
   );
   
+  if (rankError) console.error(`[MyPage] Rank Error: ${rankError}`);
+
   return new Response(JSON.stringify({ 
     voted: true, 
     visitor_id: id, 

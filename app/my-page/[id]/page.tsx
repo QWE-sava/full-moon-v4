@@ -83,8 +83,15 @@ export default function MyPage({ params }: { params: { id: string } }) {
       <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-800 text-slate-500">
         <Fingerprint className="w-10 h-10" />
       </div>
-      <h2 className="text-2xl font-bold">データが見つかりません</h2>
-      <Link href="/vote" className="btn-primary inline-block">投票へ戻る</Link>
+      <div className="space-y-2 px-4">
+        <h2 className="text-2xl font-bold">データが見つかりません</h2>
+        <p className="text-slate-400 text-sm">
+          {(data as any)?.debug_error || (data as any)?.debug_info || 'まだ投票が完了していないか、URLが正しくありません。'}
+        </p>
+      </div>
+      <Link href="/vote" className="btn-primary inline-block">
+        投票ページへ移動する
+      </Link>
     </div>
   );
 
