@@ -15,7 +15,7 @@ export default function VotePage() {
   const router = useRouter();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
-  const [faceHash, setFaceHash] = useState<string | null>(null);
+  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +39,8 @@ export default function VotePage() {
     e.preventDefault();
     setError(null);
 
-    if (!faceHash) {
-      setError('まずは顔をキャプチャしてハッシュを生成してください');
+    if (!faceDescriptor) {
+      setError('まずは顔を認証して特徴量を生成してください');
       return;
     }
     if (!selectedClubId) {
@@ -54,14 +54,17 @@ export default function VotePage() {
       const res = await fetch(`${baseUrl}/api/vote`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ face_hash: faceHash, club_id: selectedClubId }),
+        body: JSON.stringify({ 
+          face_embedding: faceDescriptor, 
+          club_id: selectedClubId 
+        }),
       });
 
       const json = await res.json();
 
       if (!res.ok) {
         if (json?.error === 'Already voted') {
-          setError('すでに投票済みです。この顔（ハッシュ）では1回のみ投票可能です。');
+          setError('すでに投票済みです。この顔では1回のみ投票可能です。');
         } else {
           setError(json?.error || '投票に失敗しました');
         }
@@ -88,7 +91,7 @@ export default function VotePage() {
       <section className="text-center">
         <h2 className="text-2xl font-bold font-outfit mb-3">清き一票を、あなたの顔で。</h2>
         <p className="text-slate-400 max-w-lg mx-auto leading-relaxed">
-          カメラで顔を認識し、世界で唯一の認証ハッシュを生成します。<br />
+          カメラで顔を認識し、生体特徴量を生成します。<br />
           画像自体は保存されない、プライバシー重視の投票システムです。
         </p>
       </section>
@@ -100,10 +103,10 @@ export default function VotePage() {
             <div className="w-8 h-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">1</div>
             <h3 className="text-xl font-bold flex items-center gap-2">
               <Fingerprint className="w-5 h-5 text-indigo-400" />
-              顔認証ハッシュの生成
+              顔認証特徴量の生成
             </h3>
           </div>
-          <CameraCapture onHashGenerated={setFaceHash} />
+          <CameraCapture onDescriptorGenerated={setFaceDescriptor} />
         </div>
 
         {/* Step 2 */}
@@ -152,7 +155,7 @@ export default function VotePage() {
         <div className="glass-card p-4 border-indigo-500/10 bg-indigo-500/5 flex gap-3 items-start">
           <Info className="w-5 h-5 text-indigo-400 mt-0.5 flex-shrink-0" />
           <p className="text-xs text-slate-400 leading-relaxed">
-            投票内容はブロックチェーンのように不可逆なハッシュ値で管理されます。
+            投票内容は生体特徴量（バイオメトリクス）として安全に管理されます。
             一度投票すると、同じ顔での再投票はできません。
           </p>
         </div>
@@ -167,7 +170,7 @@ export default function VotePage() {
         <div className="pt-4">
           <button
             type="submit"
-            disabled={loading || !faceHash || !selectedClubId}
+            disabled={loading || !faceDescriptor || !selectedClubId}
             className="w-full btn-primary py-4 text-lg flex items-center justify-center gap-2 group"
           >
             {loading ? (
