@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import React from 'react';
 import { User, CheckCircle, ExternalLink, ArrowLeft, Trophy } from 'lucide-react';
 import Link from 'next/link';

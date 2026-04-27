@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 import React from 'react';
 import { BarChart3, Trophy, Medal, Crown, TrendingUp, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
