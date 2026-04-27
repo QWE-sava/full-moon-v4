@@ -2,8 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CameraCapture } from '@/components/CameraCapture';
+import dynamic from 'next/dynamic';
 import { LayoutGrid, Fingerprint, Send, AlertCircle, Info, RefreshCw } from 'lucide-react';
+
+const CameraCapture = dynamic(
+  () => import('@/components/CameraCapture').then((mod) => mod.CameraCapture),
+  { ssr: false, loading: () => (
+    <div className="aspect-[4/3] bg-slate-900 rounded-3xl animate-pulse flex items-center justify-center text-slate-500">
+      認証ユニットを準備中...
+    </div>
+  )}
+);
 
 type Club = {
   id: number;
