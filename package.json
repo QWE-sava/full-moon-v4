@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "autoprefixer": "^10.4.0",
     "framer-motion": "^11.0.3",
     "lucide-react": "^0.330.0",
