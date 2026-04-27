@@ -21,7 +21,8 @@ export const CameraCapture: React.FC<Props> = ({ onDescriptorGenerated }) => {
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const MODEL_URL = '/models';
+        // Use window.location.origin to ensure absolute path from the root
+        const MODEL_URL = `${window.location.origin}/models`;
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
